@@ -21,15 +21,7 @@ async function mutate(fn){const copy=structuredClone(data);fn();try{await save()
 function subtotal(){return Object.entries(cart).reduce((n,[id,q])=>{const p=id.startsWith("__custom__:")?customItems[id]:data.products.find(x=>x.id===id);return n+Number(p?.price||0)*Math.max(0,Number(q)||0)},0)}
 function amount(){const sub=subtotal(),disc=Math.min(sub,sub*(+discount.pct||0)/100+(+discount.baht||0)),base=Math.max(0,sub-disc),vat=data.vat?Math.round(base*7)/100:0;return{sub,disc,base,vat,total:Math.round((base+vat)*100)/100}}
 function productImage(p){return p.img||(/clicker\s*3d/i.test(p.name||"")?"/clicker-pastel.svg":"")}
-function productMedia(p){
- const match=/clicker\s*3d\s*([1-6])\s*ช่อง/i.exec(p.name||"");
- if(match&&(!p.img||p.img==="/clicker-pastel.svg")){
-  const crops=[[5,338,214,215],[224,338,191,215],[420,338,215,215],[5,560,214,207],[224,560,191,207],[420,560,215,207]];
-  const crop=crops[Number(match[1])-1];
-  return '<div class="product-media"><svg class="clicker-crop" width="'+crop[2]+'" height="'+crop[3]+'" viewBox="'+crop.join(' ')+'" role="img" aria-label="'+escapeHTML(p.name)+'" preserveAspectRatio="xMidYMid meet"><image href="/clicker-pastel.svg" width="640" height="960"/></svg></div>';
- }
- return productImage(p)?'<div class="product-media"><img src="'+escapeHTML(productImage(p))+'" alt="'+escapeHTML(p.name||"สินค้า")+'" loading="lazy"></div>':'<div class="product-media product-placeholder" aria-hidden="true">🛍</div>';
-}
+function productMedia(p){const src=productImage(p);return src?'<div class="product-media"><img src="'+escapeHTML(src)+'" alt="'+escapeHTML(p.name||"สินค้า")+'" loading="lazy" decoding="async"></div>':'<div class="product-media product-placeholder" aria-hidden="true">🛍</div>'}
 function ownerName(p){return p.owner||"ยังไม่ระบุเจ้าของ"}
 function allowed(p){return sessionRole==="admin"||sessionRole==="main"||sessionRole==="role-admin"||accessPermissions[p]===true}
 function render(){
@@ -105,7 +97,7 @@ function editAccess(a){if(!a)return;open("สิทธิ์: "+a.name,'<div cla
 function manageOwners(){const rows=data.owners.map(x=>'<div class="row" style="justify-content:space-between;margin:8px 0"><b>'+escapeHTML(x)+'</b><button data-delete-owner="'+escapeHTML(x)+'">🗑 ลบเจ้าของ</button></div>').join("");open("จัดการเจ้าของสินค้า",'<p class="muted">การลบจะไม่ลบสินค้าและยอดขายเก่า แต่สินค้าเดิมของเจ้าของที่ถูกลบจะเปลี่ยนเป็น “ยังไม่ระบุเจ้าของ”</p><div class="row"><input id="newOwner" placeholder="ชื่อเจ้าของ"><button id="addOwner" class="primary">เพิ่มเจ้าของ</button></div>'+rows);$("addOwner").onclick=async()=>{const n=$("newOwner").value.trim();if(!n)return notify("กรอกชื่อ");await mutate(()=>{if(!data.owners.includes(n))data.owners.push(n)});manageOwners()};$("modalBody").querySelectorAll("[data-delete-owner]").forEach(b=>b.onclick=async()=>{const n=b.dataset.deleteOwner;if(!confirm("ต้องการลบเจ้าของ "+n+"? สินค้าที่เคยเป็นของคนนี้จะถูกจัดเป็นยังไม่ระบุเจ้าของ แต่ประวัติการขายไม่หาย"))return;await mutate(()=>{data.owners=data.owners.filter(x=>x!==n);for(const p of data.products)if(p.owner===n)p.owner="ยังไม่ระบุเจ้าของ"});manageOwners()})}
 populateLoginSellers();
 
-setInterval(async()=>{if(!token||!$("login").classList.contains("hide"))return;try{const r=await api("read");if(r.revision!==revision){revision=r.revision;data={...structuredClone(blank),...r.workspace};data.owners=Array.isArray(data.owners)?data.owners:blank.owners;render();notify("อัปเดตข้อมูลจากอีกเครื่องแล้ว")}sales=r.sales||[];$("sync").textContent="☁ ซิงก์แล้ว"}catch{$("sync").textContent="⚠ ออฟไลน์"}},7000);
+setInterval(async()=>{if(!token||!$("login").classList.contains("hide"))return;try{const r=await api("read");if(r.revision!==revision){revision=r.revision;data={...structuredClone(blank),...r.workspace};data.owners=Array.isArray(data.owners)?data.owners:blank.owners;render();$("sync").textContent="☁ อัปเดตล่าสุด"}sales=r.sales||[];$("sync").textContent="☁ ซิงก์แล้ว"}catch{$("sync").textContent="⚠ ออฟไลน์"}},7000);
 
 (async()=>{if(token){try{const a=await api("myAccess");sessionRole=a.role==="main"?"admin":"seller";accessPermissions=a.permissions||{};if(a.role==="admin")accessPermissions={shop:true,owners:true,assign:true,summary:true,products:true,promptpay:true,vat:true,history:true,import:true};await load();$("login").classList.add("hide")}catch{sessionStorage.removeItem("pos_token")}}})();
 </script></body></html>
